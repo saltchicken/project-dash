@@ -9,6 +9,7 @@ use futures::StreamExt;
 use ratatui::{
     Frame, Terminal,
     backend::CrosstermBackend,
+    prelude::*,
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, List, ListItem, ListState},
 };
@@ -137,5 +138,22 @@ fn render(frame: &mut Frame, folders: &[String], list_state: &mut ListState) {
                 .fg(Color::Black),
         )
         .highlight_symbol(">> ");
-    frame.render_stateful_widget(list, frame.area(), list_state);
+    let area = centered_rect(60, 50, frame.area());
+    frame.render_stateful_widget(list, area, list_state);
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(r);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(popup_layout[1])[1]
 }
