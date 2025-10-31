@@ -588,7 +588,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "projects"
+name = "project-dash"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
