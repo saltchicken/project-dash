@@ -1,51 +1,64 @@
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+// ‼️ Need to import these for manual setup
+use crossterm::{
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
 use futures::StreamExt;
 use ratatui::{
-    DefaultTerminal,
     Frame,
+    Terminal, // ‼️ Use the full Terminal struct
+    // ‼️ Import the backend and Terminal
+    backend::CrosstermBackend,
     prelude::*,
-    // ‼️ Added for selection highlighting
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, List, ListItem, ListState}, // ‼️ Added ListState
+    widgets::{Block, Borders, List, ListItem, ListState},
 };
-
-// ‼️ Added for path and env var handling
 use std::env;
+// ‼️ We need stderr
+use std::io::stderr;
 use std::path::PathBuf;
-
-// ‼️ No longer need tokio::process or tokio::io
-// use std::process::Stdio;
-// use tokio::io::{AsyncBufReadExt, BufReader};
-// use tokio::process::Command;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    let terminal = ratatui::init();
+
+    // ‼️ --- MANUAL TUI SETUP on STDERR ---
+    enable_raw_mode()?;
+    // ‼️ Use stderr() here
+    execute!(stderr(), EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stderr());
+    let mut terminal = Terminal::new(backend)?;
+    // ‼️ --- END MANUAL SETUP ---
+
     // ‼️ Run result is now handled to get the selected path
-    let run_result = run(terminal).await;
+    // ‼️ We pass our manually created terminal
+    let run_result = run(&mut terminal).await;
 
-    ratatui::restore();
+    // ‼️ --- MANUAL TUI RESTORE from STDERR ---
+    disable_raw_mode()?;
+    // ‼️ Use stderr() here
+    execute!(stderr(), LeaveAlternateScreen)?;
+    // ‼️ --- END MANUAL RESTORE ---
 
-    // ‼️ After restoring the terminal, check if a path was selected
+    // ‼️ This part is PERFECT. It prints the path to STDOUT,
+    // ‼️ which the fish script will capture.
     if let Ok(Some(folder_path)) = run_result {
-        // ‼️ Use std::process::Command for a blocking call to take over the terminal
-        std::process::Command::new("nvim")
-            .arg(folder_path)
-            .status() // Wait for nvim to exit
-            .map_err(|e| color_eyre::eyre::eyre!("Failed to start nvim: {}", e))?;
+        println!("{}", folder_path.display());
     } else if let Err(e) = run_result {
-        // ‼️ Print any errors that occurred during the run
+        // ‼️ Errors go to STDERR, so the user sees them
         eprintln!("Application error: {}", e);
     }
-    // ‼️ If run_result was Ok(None) (user pressed 'q'), we just exit cleanly
+    // ‼️ If run_result was Ok(None) (user pressed 'q'), we print nothing
 
     Ok(())
 }
 
-// ‼️ Changed signature to return the selected path, if any
-async fn run(mut terminal: DefaultTerminal) -> Result<Option<PathBuf>> {
+// ‼️ Changed signature to accept the explicit Terminal type
+async fn run(
+    terminal: &mut Terminal<CrosstermBackend<std::io::Stderr>>,
+) -> Result<Option<PathBuf>> {
     // ‼️ Get the path to ~/Desktop
     let home_dir =
         env::var("HOME").map_err(|_| color_eyre::eyre::eyre!("Could not find HOME env var"))?;
@@ -74,7 +87,6 @@ async fn run(mut terminal: DefaultTerminal) -> Result<Option<PathBuf>> {
     let mut list_state = ListState::default();
     list_state.select(Some(0)); // Select the first item
 
-    // ‼️ Replaced journalctl setup with just the event stream
     let mut event_stream = event::EventStream::new();
 
     loop {
@@ -87,18 +99,15 @@ async fn run(mut terminal: DefaultTerminal) -> Result<Option<PathBuf>> {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => {
-                            // ‼️ Quit
                             break Ok(None);
                         }
                         KeyCode::Char('j') | KeyCode::Down => {
-                            // ‼️ Select next
                             if let Some(selected) = list_state.selected() {
                                 let next = (selected + 1) % folders.len();
                                 list_state.select(Some(next));
                             }
                         }
                         KeyCode::Char('k') | KeyCode::Up => {
-                            // ‼️ Select previous
                             if let Some(selected) = list_state.selected() {
                                 let prev = if selected == 0 {
                                     folders.len() - 1
@@ -109,7 +118,6 @@ async fn run(mut terminal: DefaultTerminal) -> Result<Option<PathBuf>> {
                             }
                         }
                         KeyCode::Enter => {
-                            // ‼️ Select folder and exit
                             if let Some(selected_index) = list_state.selected() {
                                 let selected_folder = &folders[selected_index];
                                 let full_path = desktop_path.join(selected_folder);
@@ -124,12 +132,9 @@ async fn run(mut terminal: DefaultTerminal) -> Result<Option<PathBuf>> {
     }
 }
 
-// ‼️ Changed signature to accept folder list and the ListState
+// ‼️ This function remains identical
 fn render(frame: &mut Frame, folders: &[String], list_state: &mut ListState) {
-    // ‼️ Create ListItems from the folder list
     let items: Vec<ListItem> = folders.iter().map(|f| ListItem::new(f.as_str())).collect();
-
-    // ‼️ Create a stateful List widget
     let list = List::new(items)
         .block(
             Block::default()
@@ -137,7 +142,6 @@ fn render(frame: &mut Frame, folders: &[String], list_state: &mut ListState) {
                 .title("Select a Folder"),
         )
         .style(Style::default().fg(Color::White))
-        // ‼️ Add highlighting for the selected item
         .highlight_style(
             Style::default()
                 .add_modifier(Modifier::BOLD)
@@ -145,7 +149,5 @@ fn render(frame: &mut Frame, folders: &[String], list_state: &mut ListState) {
                 .fg(Color::Black),
         )
         .highlight_symbol(">> ");
-
-    // ‼️ Render the *stateful* widget, passing our persistent state
     frame.render_stateful_widget(list, frame.area(), list_state);
 }
