@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-
 use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -14,11 +13,9 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 use std::env;
-
 use std::io::stderr;
 use std::path::PathBuf;
 
-// ‼️ App struct to hold all application state
 struct App {
     running: bool,
     folders: Vec<String>,
@@ -65,6 +62,57 @@ impl App {
         })
     }
 
+    async fn run(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<std::io::Stderr>>,
+    ) -> Result<()> {
+        let mut event_stream = event::EventStream::new();
+        while self.running {
+            terminal.draw(|frame| self.render(frame))?;
+
+            if let Some(Ok(event)) = event_stream.next().await {
+                if let Event::Key(key) = event {
+                    if key.kind == KeyEventKind::Press {
+                        match key.code {
+                            KeyCode::Esc => self.quit(),
+                            KeyCode::Down => self.select_next(),
+                            KeyCode::Up => self.select_previous(),
+                            KeyCode::Enter => self.confirm_selection(),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn render(&mut self, frame: &mut Frame) {
+        let items: Vec<ListItem> = self
+            .folders
+            .iter()
+            .map(|f| ListItem::new(f.as_str()))
+            .collect();
+
+        let list = List::new(items)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Select a Folder"),
+            )
+            .style(Style::default().fg(Color::White))
+            .highlight_style(
+                Style::default()
+                    .add_modifier(Modifier::BOLD)
+                    .bg(Color::Gray)
+                    .fg(Color::Black),
+            )
+            .highlight_symbol(">> ");
+
+        let area = centered_rect(60, 50, frame.area());
+        frame.render_stateful_widget(list, area, &mut self.list_state);
+    }
+
     fn quit(&mut self) {
         self.running = false;
     }
@@ -101,83 +149,29 @@ impl App {
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    //  --- MANUAL TUI SETUP on STDERR ---
+    //  --- MANUAL TUI SETUP on STDERR ---
     enable_raw_mode()?;
     execute!(stderr(), EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stderr());
     let mut terminal = Terminal::new(backend)?;
-    //  --- END MANUAL SETUP ---
+    //  --- END MANUAL SETUP ---
 
-    // Run result is now handled to get the selected path
-    // Pass our manually created terminal
-    let run_result = run(&mut terminal).await;
-
-    //  --- MANUAL TUI RESTORE from STDERR ---
-    disable_raw_mode()?;
-    //  Use stderr() here
-    execute!(stderr(), LeaveAlternateScreen)?;
-    //  --- END MANUAL RESTORE ---
-
-    if let Ok(Some(folder_path)) = run_result {
-        println!("{}", folder_path.display());
-    } else if let Err(e) = run_result {
-        eprintln!("Application error: {}", e);
-    }
-    // If run_result was Ok(None) (user pressed 'q'), we print nothing
-
-    Ok(())
-}
-
-async fn run(
-    terminal: &mut Terminal<CrosstermBackend<std::io::Stderr>>,
-) -> Result<Option<PathBuf>> {
     let mut app = App::new()?;
-    let mut event_stream = event::EventStream::new();
+    let run_result = app.run(&mut terminal).await;
 
-    while app.running {
-        terminal.draw(|frame| render(frame, &mut app))?;
+    //  --- MANUAL TUI RESTORE from STDERR ---
+    disable_raw_mode()?;
+    execute!(stderr(), LeaveAlternateScreen)?;
+    //  --- END MANUAL RESTORE ---
 
-        if let Some(Ok(event)) = event_stream.next().await
-            && let Event::Key(key) = event
-            && key.kind == KeyEventKind::Press
-        {
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => app.quit(),
-                KeyCode::Char('j') | KeyCode::Down => app.select_next(),
-                KeyCode::Char('k') | KeyCode::Up => app.select_previous(),
-                KeyCode::Enter => app.confirm_selection(),
-                _ => {}
-            }
-        }
+    if let Err(e) = run_result {
+        eprintln!("Application error: {}", e);
+    } else if let Some(folder_path) = app.result {
+        println!("{}", folder_path.display());
     }
 
-    Ok(app.result)
-}
-
-fn render(frame: &mut Frame, app: &mut App) {
-    let items: Vec<ListItem> = app
-        .folders
-        .iter()
-        .map(|f| ListItem::new(f.as_str()))
-        .collect();
-
-    let list = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Select a Folder"),
-        )
-        .style(Style::default().fg(Color::White))
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .bg(Color::Gray)
-                .fg(Color::Black),
-        )
-        .highlight_symbol(">> ");
-
-    let area = centered_rect(60, 50, frame.area());
-    frame.render_stateful_widget(list, area, &mut app.list_state);
+    // If run_result was Ok(()) and app.result is None (user pressed 'Esc'), we print nothing
+    Ok(())
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
