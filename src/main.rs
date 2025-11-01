@@ -191,7 +191,6 @@ fn main() -> Result<()> {
     //  --- END MANUAL SETUP ---
 
     let mut app = App::new()?;
-    // ‼️ REMOVED: .await
     let run_result = app.run(&mut terminal);
 
     //  --- MANUAL TUI RESTORE from STDERR ---
