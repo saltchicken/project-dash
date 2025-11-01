@@ -4,7 +4,6 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use futures::StreamExt;
 use ratatui::{
     Frame, Terminal,
     backend::CrosstermBackend,
@@ -37,23 +36,18 @@ impl App {
                 desktop_path.display()
             ));
         }
-
         let folders: Vec<String> = std::fs::read_dir(&desktop_path)?
             .filter_map(Result::ok)
             .filter(|entry| entry.path().is_dir())
             .map(|entry| entry.file_name().into_string().unwrap_or_default())
             .filter(|s| !s.is_empty() && !s.starts_with('.'))
             .collect();
-
         if folders.is_empty() {
             return Err(color_eyre::eyre::eyre!("No folders found in ~/Desktop"));
         }
-
         let mut list_state = ListState::default();
         list_state.select(Some(0));
-
         let filtered_folders = folders.clone();
-
         Ok(Self {
             running: true,
             folders,
@@ -65,33 +59,27 @@ impl App {
         })
     }
 
-    async fn run(
-        &mut self,
-        terminal: &mut Terminal<CrosstermBackend<std::io::Stderr>>,
-    ) -> Result<()> {
-        let mut event_stream = event::EventStream::new();
+    // ‼️ CHANGED: No longer async
+    fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stderr>>) -> Result<()> {
         while self.running {
             terminal.draw(|frame| self.render(frame))?;
 
-            if let Some(Ok(event)) = event_stream.next().await {
-                if let Event::Key(key) = event {
-                    if key.kind == KeyEventKind::Press {
-                        // ‼️ CHANGED: Updated key handling for filtering
-                        match key.code {
-                            KeyCode::Esc => self.quit(),
-                            KeyCode::Down => self.select_next(),
-                            KeyCode::Up => self.select_previous(),
-                            KeyCode::Enter => self.confirm_selection(),
-                            KeyCode::Char(c) => {
-                                self.input_text.push(c);
-                                self.apply_filter();
-                            }
-                            KeyCode::Backspace => {
-                                self.input_text.pop();
-                                self.apply_filter();
-                            }
-                            _ => {}
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Esc => self.quit(),
+                        KeyCode::Down => self.select_next(),
+                        KeyCode::Up => self.select_previous(),
+                        KeyCode::Enter => self.confirm_selection(),
+                        KeyCode::Char(c) => {
+                            self.input_text.push(c);
+                            self.apply_filter();
                         }
+                        KeyCode::Backspace => {
+                            self.input_text.pop();
+                            self.apply_filter();
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -101,7 +89,7 @@ impl App {
 
     fn render(&mut self, frame: &mut Frame) {
         let items: Vec<ListItem> = self
-            .filtered_folders // ‼️ Use the filtered list
+            .filtered_folders // Use the filtered list
             .iter()
             .map(|f| ListItem::new(f.as_str()))
             .collect();
@@ -193,25 +181,24 @@ impl App {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     color_eyre::install()?;
-
     //  --- MANUAL TUI SETUP on STDERR ---
     enable_raw_mode()?;
     execute!(stderr(), EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stderr());
     let mut terminal = Terminal::new(backend)?;
-
     //  --- END MANUAL SETUP ---
+
     let mut app = App::new()?;
-    let run_result = app.run(&mut terminal).await;
+    // ‼️ REMOVED: .await
+    let run_result = app.run(&mut terminal);
 
     //  --- MANUAL TUI RESTORE from STDERR ---
     disable_raw_mode()?;
     execute!(stderr(), LeaveAlternateScreen)?;
-
     //  --- END MANUAL RESTORE ---
+
     if let Err(e) = run_result {
         eprintln!("Application error: {}", e);
     } else if let Some(folder_path) = app.result {
