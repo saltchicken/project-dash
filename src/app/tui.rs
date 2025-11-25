@@ -10,7 +10,7 @@ use std::io::{self, Stderr};
 pub type Tui = Terminal<CrosstermBackend<Stderr>>;
 
 /// Initialize the terminal: Enable raw mode, enter alternate screen.
-
+/// ‼️ Configured to use Stderr so Stdout is available for piping results.
 pub fn init() -> Result<Tui> {
     enable_raw_mode()?;
     execute!(io::stderr(), EnterAlternateScreen)?;
@@ -25,3 +25,4 @@ pub fn restore() -> Result<()> {
     execute!(io::stderr(), LeaveAlternateScreen)?;
     Ok(())
 }
+

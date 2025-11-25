@@ -1,10 +1,15 @@
-use crate::{fs, tui, ui};
+// ‼️ Declare submodules. Rust looks for them in src/app/*.rs
+pub mod fs;
+pub mod tui;
+pub mod ui;
+
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use futures::StreamExt;
 use ratatui::widgets::ListState;
 use std::path::PathBuf;
 
+// ‼️ Import from the submodules declared above
 
 #[derive(Debug, PartialEq)]
 pub enum AppMode {
@@ -24,7 +29,6 @@ pub struct App {
 }
 
 impl App {
-    /// Initialize the Application state.
     pub fn new() -> Result<Self> {
         let desktop_path = fs::get_desktop_path()?;
         let folders = fs::get_folders(&desktop_path)?;
@@ -47,7 +51,6 @@ impl App {
         })
     }
 
-    /// The main async run loop.
     pub async fn run(&mut self, terminal: &mut tui::Tui) -> Result<()> {
         let mut event_stream = event::EventStream::new();
 
@@ -61,7 +64,6 @@ impl App {
         Ok(())
     }
 
-    /// Centralized event handler.
     fn handle_event(&mut self, event: Event) {
         if let Event::Key(key) = event {
             if key.kind == KeyEventKind::Press {
@@ -69,8 +71,6 @@ impl App {
             }
         }
     }
-
-    /// Specific key press logic with Vim Modes.
 
     fn handle_key_press(&mut self, key: KeyEvent) {
         match self.mode {
@@ -85,7 +85,6 @@ impl App {
             AppMode::Editing => match key.code {
                 KeyCode::Esc => self.enter_normal_mode(),
                 KeyCode::Enter => self.confirm_selection(),
-
                 KeyCode::Up => self.select_previous(),
                 KeyCode::Down => self.select_next(),
                 KeyCode::Char(c) => self.on_char_input(c),
@@ -119,7 +118,6 @@ impl App {
         self.apply_filter();
     }
 
-    /// Core business logic for filtering lists.
     fn apply_filter(&mut self) {
         let filter_text = self.input_text.to_lowercase();
 
@@ -133,7 +131,6 @@ impl App {
         self.adjust_selection_after_filter();
     }
 
-    /// Ensures the selection cursor stays valid after filtering.
     fn adjust_selection_after_filter(&mut self) {
         if self.filtered_folders.is_empty() {
             self.list_state.select(None);
@@ -146,7 +143,7 @@ impl App {
                 None => {
                     self.list_state.select(Some(0));
                 }
-                _ => {} // Selection is valid
+                _ => {}
             }
         }
     }
@@ -189,7 +186,6 @@ impl App {
         self.running = false;
     }
 }
-
 
 #[cfg(test)]
 mod tests {

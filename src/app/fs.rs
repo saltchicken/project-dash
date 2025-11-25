@@ -3,7 +3,7 @@ use std::env;
 use std::path::PathBuf;
 
 /// Locates the Desktop directory and returns its path.
-
+/// ‼️ Extracted logic from original App::new for separation of concerns
 pub fn get_desktop_path() -> Result<PathBuf> {
     let home_dir =
         env::var("HOME").map_err(|_| color_eyre::eyre::eyre!("Could not find HOME env var"))?;
@@ -19,7 +19,7 @@ pub fn get_desktop_path() -> Result<PathBuf> {
 }
 
 /// Scans the given directory and returns a sorted list of folder names.
-
+/// ‼️ Extracted logic to allow re-use or testing separate from UI
 pub fn get_folders(path: &PathBuf) -> Result<Vec<String>> {
     let mut folders: Vec<String> = std::fs::read_dir(path)?
         .filter_map(Result::ok)
@@ -35,6 +35,7 @@ pub fn get_folders(path: &PathBuf) -> Result<Vec<String>> {
         ));
     }
 
-    folders.sort();
+    folders.sort(); // ‼️ Added sorting for better UX
     Ok(folders)
 }
+

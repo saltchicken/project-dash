@@ -1,4 +1,4 @@
-use crate::app::{App, AppMode};
+use crate::app::{App, AppMode}; // ‼️ Imported AppMode
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -21,7 +21,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .bg(Color::Gray)
         .fg(Color::Black);
 
-
+    // ‼️ Dynamic UI based on Mode
     let (border_color, title_text) = match app.mode {
         AppMode::Normal => (
             Color::Blue,
@@ -38,7 +38,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let list_block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color))
+        .border_style(Style::default().fg(border_color)) // ‼️ Apply dynamic border color
         .title(title_text);
 
     let list = List::new(items)
@@ -66,3 +66,4 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     ])
     .split(popup_layout[1])[1]
 }
+
