@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, AppMode}; // ‼️ Imported AppMode
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -16,15 +16,30 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         .map(|f| ListItem::new(f.as_str()))
         .collect();
 
-    // ‼️ Styles extracted to make modifying the theme easier
     let highlight_style = Style::default()
         .add_modifier(Modifier::BOLD)
         .bg(Color::Gray)
         .fg(Color::Black);
 
+    // ‼️ Dynamic UI based on Mode
+    let (border_color, title_text) = match app.mode {
+        AppMode::Normal => (
+            Color::Blue,
+            format!(
+                "NORMAL (q to quit, / to search) - Filter: {}",
+                app.input_text
+            ),
+        ),
+        AppMode::Editing => (
+            Color::Yellow,
+            format!("INSERT (Esc to exit) - Filter: {}", app.input_text),
+        ),
+    };
+
     let list_block = Block::default()
         .borders(Borders::ALL)
-        .title(format!("Select a Folder (Filter: {})", app.input_text));
+        .border_style(Style::default().fg(border_color)) // ‼️ Apply dynamic border color
+        .title(title_text);
 
     let list = List::new(items)
         .block(list_block)
@@ -36,7 +51,6 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 }
 
 /// Helper to center a rect in the screen.
-/// ‼️ Extracted utility function
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::vertical([
         Constraint::Percentage((100 - percent_y) / 2),

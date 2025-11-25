@@ -5,6 +5,13 @@ use futures::StreamExt;
 use ratatui::widgets::ListState;
 use std::path::PathBuf;
 
+// ‼️ Added Enum for Vim Modes
+#[derive(Debug, PartialEq)]
+pub enum AppMode {
+    Normal,
+    Editing,
+}
+
 pub struct App {
     pub running: bool,
     pub folders: Vec<String>,
@@ -13,6 +20,7 @@ pub struct App {
     pub desktop_path: PathBuf,
     pub result: Option<PathBuf>,
     pub input_text: String,
+    pub mode: AppMode, // ‼️ Added mode field
 }
 
 impl App {
@@ -23,7 +31,6 @@ impl App {
         let filtered_folders = folders.clone();
 
         let mut list_state = ListState::default();
-        // ‼️ Select the first item by default if available
         if !filtered_folders.is_empty() {
             list_state.select(Some(0));
         }
@@ -36,6 +43,7 @@ impl App {
             desktop_path,
             result: None,
             input_text: String::new(),
+            mode: AppMode::Normal, // ‼️ Default to Normal mode
         })
     }
 
@@ -62,18 +70,36 @@ impl App {
         }
     }
 
-    /// Specific key press logic.
-    /// ‼️ Refactored massive match block from original code into smaller functions
+    /// Specific key press logic with Vim Modes.
+    /// ‼️ Completely refactored for Modal Editing
     fn handle_key_press(&mut self, key: KeyEvent) {
-        match key.code {
-            KeyCode::Esc => self.quit(),
-            KeyCode::Down => self.select_next(),
-            KeyCode::Up => self.select_previous(),
-            KeyCode::Enter => self.confirm_selection(),
-            KeyCode::Char(c) => self.on_char_input(c),
-            KeyCode::Backspace => self.on_backspace(),
-            _ => {}
+        match self.mode {
+            AppMode::Normal => match key.code {
+                KeyCode::Char('q') => self.quit(),
+                KeyCode::Char('j') | KeyCode::Down => self.select_next(),
+                KeyCode::Char('k') | KeyCode::Up => self.select_previous(),
+                KeyCode::Char('/') => self.enter_editing_mode(),
+                KeyCode::Enter => self.confirm_selection(),
+                _ => {}
+            },
+            AppMode::Editing => match key.code {
+                KeyCode::Esc => self.enter_normal_mode(),
+                KeyCode::Enter => self.confirm_selection(),
+                KeyCode::Char(c) => self.on_char_input(c),
+                KeyCode::Backspace => self.on_backspace(),
+                _ => {}
+            },
         }
+    }
+
+    fn enter_editing_mode(&mut self) {
+        self.mode = AppMode::Editing;
+    }
+
+    fn enter_normal_mode(&mut self) {
+        self.mode = AppMode::Normal;
+        self.input_text.clear(); // ‼️ Clear the filter text
+        self.apply_filter(); // ‼️ Re-apply to reset list to full view
     }
 
     fn quit(&mut self) {
@@ -168,10 +194,8 @@ mod tests {
 
     #[test]
     fn test_filter_logic() {
-        // Mock data usually requires decoupling filesystem, but we can test logic logic by creating partial state
-        // For now, testing basic logic principles:
         let folders = vec!["Alpha".to_string(), "Beta".to_string(), "Gamma".to_string()];
-        let input = "a"; // Should match Alpha and Beta and Gamma
+        let input = "a";
         let filtered: Vec<String> = folders
             .iter()
             .filter(|f| f.to_lowercase().contains(input))
