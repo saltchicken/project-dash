@@ -1,4 +1,4 @@
-mod app; // ‼️ Looks for src/app.rs
+mod app;
 
 use color_eyre::Result;
 
@@ -6,24 +6,20 @@ use color_eyre::Result;
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
-    // 1. Initialize Terminal (Stderr)
-    // ‼️ Accessed via app::tui
     let mut terminal = app::tui::init()?;
 
-    // 2. Run App
     let mut app_result = app::App::new();
 
     let mut final_result = None;
 
     if let Ok(ref mut app) = app_result {
-        let _ = app.run(&mut terminal).await;
+
+        let _ = app::run(app, &mut terminal).await;
         final_result = app.result.clone();
     }
 
-    // 3. Restore Terminal (Stderr)
     app::tui::restore()?;
 
-    // 4. Handle Results (Stdout/Stderr)
     match app_result {
         Err(e) => eprintln!("Application error: {}", e),
         Ok(_) => {
@@ -35,4 +31,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
