@@ -5,7 +5,7 @@ use futures::StreamExt;
 use ratatui::widgets::ListState;
 use std::path::PathBuf;
 
-
+// ‼️ Added Enum for Vim Modes
 #[derive(Debug, PartialEq)]
 pub enum AppMode {
     Normal,
@@ -20,7 +20,7 @@ pub struct App {
     pub desktop_path: PathBuf,
     pub result: Option<PathBuf>,
     pub input_text: String,
-    pub mode: AppMode,
+    pub mode: AppMode, // ‼️ Added mode field
 }
 
 impl App {
@@ -43,7 +43,7 @@ impl App {
             desktop_path,
             result: None,
             input_text: String::new(),
-            mode: AppMode::Normal,
+            mode: AppMode::Normal, // ‼️ Default to Normal mode
         })
     }
 
@@ -71,7 +71,7 @@ impl App {
     }
 
     /// Specific key press logic with Vim Modes.
-
+    /// ‼️ Completely refactored for Modal Editing
     fn handle_key_press(&mut self, key: KeyEvent) {
         match self.mode {
             AppMode::Normal => match key.code {
@@ -85,6 +85,9 @@ impl App {
             AppMode::Editing => match key.code {
                 KeyCode::Esc => self.enter_normal_mode(),
                 KeyCode::Enter => self.confirm_selection(),
+                // ‼️ Added navigation keys to Editing mode
+                KeyCode::Up => self.select_previous(),
+                KeyCode::Down => self.select_next(),
                 KeyCode::Char(c) => self.on_char_input(c),
                 KeyCode::Backspace => self.on_backspace(),
                 _ => {}
@@ -98,8 +101,8 @@ impl App {
 
     fn enter_normal_mode(&mut self) {
         self.mode = AppMode::Normal;
-        self.input_text.clear();
-        self.apply_filter();
+        self.input_text.clear(); // ‼️ Clear the filter text
+        self.apply_filter(); // ‼️ Re-apply to reset list to full view
     }
 
     fn quit(&mut self) {
@@ -187,7 +190,7 @@ impl App {
     }
 }
 
-
+// ‼️ Basic Unit Tests
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,3 +215,4 @@ mod tests {
         assert_eq!(filtered_z.len(), 0);
     }
 }
+
