@@ -5,7 +5,7 @@ use futures::StreamExt;
 use ratatui::widgets::ListState;
 use std::path::PathBuf;
 
-// ‼️ Added Enum for Vim Modes
+
 #[derive(Debug, PartialEq)]
 pub enum AppMode {
     Normal,
@@ -20,7 +20,7 @@ pub struct App {
     pub desktop_path: PathBuf,
     pub result: Option<PathBuf>,
     pub input_text: String,
-    pub mode: AppMode, // ‼️ Added mode field
+    pub mode: AppMode,
 }
 
 impl App {
@@ -43,7 +43,7 @@ impl App {
             desktop_path,
             result: None,
             input_text: String::new(),
-            mode: AppMode::Normal, // ‼️ Default to Normal mode
+            mode: AppMode::Normal,
         })
     }
 
@@ -71,7 +71,7 @@ impl App {
     }
 
     /// Specific key press logic with Vim Modes.
-    /// ‼️ Completely refactored for Modal Editing
+
     fn handle_key_press(&mut self, key: KeyEvent) {
         match self.mode {
             AppMode::Normal => match key.code {
@@ -98,8 +98,8 @@ impl App {
 
     fn enter_normal_mode(&mut self) {
         self.mode = AppMode::Normal;
-        self.input_text.clear(); // ‼️ Clear the filter text
-        self.apply_filter(); // ‼️ Re-apply to reset list to full view
+        self.input_text.clear();
+        self.apply_filter();
     }
 
     fn quit(&mut self) {
@@ -187,7 +187,7 @@ impl App {
     }
 }
 
-// ‼️ Basic Unit Tests
+
 #[cfg(test)]
 mod tests {
     use super::*;
