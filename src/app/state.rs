@@ -3,20 +3,18 @@ use color_eyre::Result;
 use ratatui::widgets::ListState;
 use std::path::PathBuf;
 
-
 #[derive(Debug, PartialEq)]
 pub enum AppMode {
     Normal,
     Editing,
 }
 
-
 pub struct App {
     pub running: bool,
     pub folders: Vec<String>,
     pub filtered_folders: Vec<String>,
     pub list_state: ListState,
-    pub desktop_path: PathBuf,
+    pub projects_path: PathBuf,
     pub result: Option<PathBuf>,
     pub input_text: String,
     pub mode: AppMode,
@@ -24,9 +22,8 @@ pub struct App {
 
 impl App {
     pub fn new() -> Result<Self> {
-
-        let desktop_path = fs::get_desktop_path()?;
-        let folders = fs::get_folders(&desktop_path)?;
+        let projects_path = fs::get_projects_path()?;
+        let folders = fs::get_folders(&projects_path)?;
         let filtered_folders = folders.clone();
 
         let mut list_state = ListState::default();
@@ -39,13 +36,12 @@ impl App {
             folders,
             filtered_folders,
             list_state,
-            desktop_path,
+            projects_path,
             result: None,
             input_text: String::new(),
             mode: AppMode::Normal,
         })
     }
-
 
     pub fn enter_editing_mode(&mut self) {
         self.mode = AppMode::Editing;
@@ -132,10 +128,11 @@ impl App {
     pub fn confirm_selection(&mut self) {
         if let Some(selected_index) = self.list_state.selected() {
             if let Some(selected_folder) = self.filtered_folders.get(selected_index) {
-                let full_path = self.desktop_path.join(selected_folder);
+                let full_path = self.projects_path.join(selected_folder);
                 self.result = Some(full_path);
             }
         }
         self.running = false;
     }
 }
+
